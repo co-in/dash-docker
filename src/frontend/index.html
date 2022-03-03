@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="qrcode.min.js"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        .column {
+            display: inline;
+        }
+
+        .sw {
+            font-weight: bold;
+        }
+
+        #qrcode {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1>Instant Send Demo!</h1>
+<div class="sw hidden" id="error">
+    <label>Error:</label>
+    <div class="column"></div>
+</div>
+<div class="sw hidden" id="address">
+    <label>Address for deposit:</label>
+    <div class="column" id="addressText"></div>
+    <div id="qrcode"></div>
+    <script type="text/javascript">
+        document.querySelector('#addressText').addEventListener('DOMSubtreeModified', function () {
+            new QRCode(document.getElementById("qrcode"), this.innerHTML);
+        }, false);
+    </script>
+    <b1>
+        Testnet Faucet: <a href="https://testnet-faucet.dash.org/" target="_blank">https://testnet-faucet.dash.org/</a>
+    </b1>
+</div>
+<div class="sw hidden" id="balance">
+    <label>Payment Received!</label>
+    <div class="column"></div>
+    <span>duffs</span>
+</div>
+</body>
+<script>
+    //TODO PORT FROM MAKEFILE VARIABLE => Docker ENV
+    let socket = new WebSocket("ws://127.0.0.1:8090/notify");
+
+    function showData(id, data) {
+        document.querySelectorAll('.sw').forEach(function (value) {
+            value.classList.add("hidden");
+        })
+
+        let elm = document.querySelector("#" + id + " div")
+        elm.innerHTML = data;
+        elm.parentElement.classList.remove("hidden");
+    }
+
+    socket.onmessage = function (event) {
+        try {
+            const msg = JSON.parse(event.data)
+            switch (msg.type) {
+                case "sign-up":
+                    showData("address", msg.value)
+                    break;
+                case "tx":
+                    showData("balance", msg.value)
+                    break;
+                default:
+                    console.log(msg, event);
+                    showData("error", "not implemented message: " + msg.type)
+            }
+        } catch (e) {
+            showData("error", e.message)
+        }
+    };
+
+    socket.onclose = function (event) {
+        if (event.wasClean) {
+            console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`, event);
+        } else {
+            console.log('[close] Connection died', event.reason, event.code);
+        }
+        showData("error", "Connection closed")
+    };
+
+    socket.onerror = function (e) {
+        showData("error", e.message)
+    };
+</script>
+</html>
